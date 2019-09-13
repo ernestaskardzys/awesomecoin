@@ -1,0 +1,24 @@
+plugins {
+    id 'java'
+}
+
+group 'info.ernestas'
+version '1.0-SNAPSHOT'
+
+sourceCompatibility = 1.11
+sourceCompatibility = 1.11
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compile group: 'commons-codec', name: 'commons-codec', version: '1.13'
+
+    testCompile group: 'org.junit.jupiter', name: 'junit-jupiter-engine', version: '5.5.2'
+    testCompile group: 'org.junit.jupiter', name: 'junit-jupiter-params', version: '5.5.2'
+}
+
+test {
+    useJUnitPlatform()
+}
