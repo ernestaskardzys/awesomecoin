@@ -3,10 +3,13 @@ package info.ernestas.awesomecoin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.SecureRandom;
 import java.security.Security;
+import java.security.spec.ECGenParameterSpec;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Objects;
 
 public class AwesomeChain {
 
@@ -26,9 +29,12 @@ public class AwesomeChain {
         Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider()); //Setup Bouncey castle as a Security Provider
 
         //Create wallets:
-        walletA = new Wallet(MINIMUM_TRANSACTION);
-        walletB = new Wallet(MINIMUM_TRANSACTION);
-        Wallet coinbase = new Wallet(MINIMUM_TRANSACTION);
+        KeyPair walletAKeys = generateKeyPair();
+        walletA = new Wallet(MINIMUM_TRANSACTION, walletAKeys.getPublic(), walletAKeys.getPrivate());
+        KeyPair walletBKeys = generateKeyPair();
+        walletB = new Wallet(MINIMUM_TRANSACTION,  walletBKeys.getPublic(), walletBKeys.getPrivate());
+        KeyPair coinbaseKeys = generateKeyPair();
+        Wallet coinbase = new Wallet(MINIMUM_TRANSACTION, coinbaseKeys.getPublic(), coinbaseKeys.getPrivate());
 
         //create genesis transaction, which sends 100 NoobCoin to walletA:
         genesisTransaction = new Transaction(coinbase.getPublicKey(), walletA.getPublicKey(), 100f, MINIMUM_TRANSACTION, null);
@@ -64,88 +70,23 @@ public class AwesomeChain {
         LOGGER.info("WalletA's balance is: {}", walletA.getBalance());
         LOGGER.info("WalletB's balance is: {}", walletB.getBalance());
 
-        isChainValid();
-    }
-
-    public static Boolean isChainValid() {
-        Block currentBlock;
-        Block previousBlock;
-        String hashTarget = new String(new char[difficulty]).replace('\0', '0');
-        HashMap<String, TransactionOutput> tempUTXOs = new HashMap<String, TransactionOutput>(); //a temporary working list of unspent transactions at a given block state.
-        tempUTXOs.put(genesisTransaction.getOutputs().get(0).getId(), genesisTransaction.getOutputs().get(0));
-
-        //loop through blockchain to check hashes:
-        for (int i = 1; i < blockchain.size(); i++) {
-            currentBlock = blockchain.get(i);
-            previousBlock = blockchain.get(i - 1);
-            //compare registered hash and calculated hash:
-            if (!Objects.equals(currentBlock.getHash(), currentBlock.calculateHash())) {
-                LOGGER.info("#Current Hashes not equal");
-                return false;
-            }
-            //compare previous hash and registered previous hash
-            if (!Objects.equals(previousBlock.getHash(), currentBlock.getPreviousHash())) {
-                LOGGER.info("#Previous Hashes not equal");
-                return false;
-            }
-            //check if hash is solved
-            if (!Objects.equals(currentBlock.getHash().substring(0, difficulty), hashTarget)) {
-                LOGGER.info("#This block hasn't been mined");
-                return false;
-            }
-
-            //loop thru blockchains transactions:
-            TransactionOutput tempOutput;
-            for (int t = 0; t < currentBlock.getTransactions().size(); t++) {
-                Transaction currentTransaction = currentBlock.getTransactions().get(t);
-
-                if (!currentTransaction.verifySignature()) {
-                    LOGGER.info("#Signature on Transaction(" + t + ") is Invalid");
-                    return false;
-                }
-                if (currentTransaction.getInputsValue() != currentTransaction.getOutputsValue()) {
-                    LOGGER.info("#Inputs are note equal to outputs on Transaction(" + t + ")");
-                    return false;
-                }
-
-                for (TransactionInput input : currentTransaction.getInputs()) {
-                    tempOutput = tempUTXOs.get(input.getTransactionOutputId());
-
-                    if (tempOutput == null) {
-                        LOGGER.info("#Referenced input on Transaction(" + t + ") is Missing");
-                        return false;
-                    }
-
-                    if (input.getUTXO().getValue() != tempOutput.getValue()) {
-                        LOGGER.info("#Referenced input Transaction(" + t + ") value is Invalid");
-                        return false;
-                    }
-
-                    tempUTXOs.remove(input.getTransactionOutputId());
-                }
-
-                for (TransactionOutput output : currentTransaction.getOutputs()) {
-                    tempUTXOs.put(output.getId(), output);
-                }
-
-                if (currentTransaction.getOutputs().get(0).getRecipient() != currentTransaction.getRecipient()) {
-                    LOGGER.info("#Transaction(" + t + ") output reciepient is not who it should be");
-                    return false;
-                }
-                if (currentTransaction.getOutputs().get(1).getRecipient() != currentTransaction.getSender()) {
-                    LOGGER.info("#Transaction(" + t + ") output 'change' is not sender.");
-                    return false;
-                }
-
-            }
-
-        }
-        LOGGER.info("Blockchain is valid");
-        return true;
     }
 
     public static void addBlock(Block newBlock) {
         newBlock.mineBlock(difficulty);
         blockchain.add(newBlock);
+    }
+
+    public static KeyPair generateKeyPair() {
+        try {
+            KeyPairGenerator keyGen = KeyPairGenerator.getInstance("ECDSA", "BC");
+            SecureRandom random = SecureRandom.getInstance("SHA1PRNG");
+            ECGenParameterSpec ecSpec = new ECGenParameterSpec("prime192v1");
+            // Initialize the key generator and generate a KeyPair
+            keyGen.initialize(ecSpec, random);   //256 bytes provides an acceptable security level
+            return keyGen.generateKeyPair();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 }

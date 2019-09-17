@@ -3,8 +3,8 @@ package info.ernestas.awesomecoin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.security.*;
-import java.security.spec.ECGenParameterSpec;
+import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -19,18 +19,18 @@ public class Wallet {
     private Map<String, TransactionOutput> UTXOs = new HashMap<>(); //only UTXOs owned by this wallet.
     private float minimumTransaction;
 
-    public Wallet(float minimumTransaction) {
+    public Wallet(float minimumTransaction, PublicKey publicKey, PrivateKey privateKey) {
         this.minimumTransaction = minimumTransaction;
-        generateKeyPair();
+        this.publicKey = publicKey;
+        this.privateKey = privateKey;
     }
 
-    //returns balance and stores the UTXO's owned by this wallet in this.UTXOs
     public float getBalance() {
         float total = 0;
         for (Map.Entry<String, TransactionOutput> item : AwesomeChain.UTXOs.entrySet()) {
             TransactionOutput UTXO = item.getValue();
-            if (UTXO.isMine(publicKey)) { //if output belongs to me ( if coins belong to me )
-                UTXOs.put(UTXO.getId(), UTXO); //add it to our list of unspent transactions.
+            if (UTXO.getRecipient().equals(publicKey)) {
+                UTXOs.put(UTXO.getId(), UTXO);
                 total += UTXO.getValue();
             }
         }
@@ -40,12 +40,11 @@ public class Wallet {
     //Generates and returns a new transaction from this wallet.
     public Transaction sendFunds(PublicKey recipient, float value) {
         if (getBalance() < value) { //gather balance and check funds.
-            LOGGER.info("#Not Enough funds to send transaction. Transaction Discarded.");
+            LOGGER.info("Not Enough funds to send transaction. Transaction Discarded.");
             return null;
         }
-        //create array list of inputs
-        List<TransactionInput> inputs = new ArrayList<>();
 
+        List<TransactionInput> inputs = new ArrayList<>();
         float total = 0;
         for (Map.Entry<String, TransactionOutput> item : UTXOs.entrySet()) {
             TransactionOutput UTXO = item.getValue();
@@ -59,26 +58,9 @@ public class Wallet {
         Transaction newTransaction = new Transaction(publicKey, recipient, value, minimumTransaction, inputs);
         newTransaction.generateSignature(privateKey);
 
-        for (TransactionInput input : inputs) {
-            UTXOs.remove(input.getTransactionOutputId());
-        }
-        return newTransaction;
-    }
+        inputs.forEach(input -> UTXOs.remove(input.getTransactionOutputId()));
 
-    public void generateKeyPair() {
-        try {
-            KeyPairGenerator keyGen = KeyPairGenerator.getInstance("ECDSA", "BC");
-            SecureRandom random = SecureRandom.getInstance("SHA1PRNG");
-            ECGenParameterSpec ecSpec = new ECGenParameterSpec("prime192v1");
-            // Initialize the key generator and generate a KeyPair
-            keyGen.initialize(ecSpec, random);   //256 bytes provides an acceptable security level
-            KeyPair keyPair = keyGen.generateKeyPair();
-            // Set the public and private keys from the keyPair
-            privateKey = keyPair.getPrivate();
-            publicKey = keyPair.getPublic();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        return newTransaction;
     }
 
     public PrivateKey getPrivateKey() {

@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class Block {
 
@@ -15,7 +16,7 @@ public class Block {
 
     private String hash;
     private final String previousHash;
-    private List<Transaction> transactions = new ArrayList<>();
+    private final List<Transaction> transactions = new ArrayList<>();
     private final long timeStamp;
     private int nonce;
 
@@ -39,17 +40,14 @@ public class Block {
         return HashUtil.calculateSha256Hash(previousHash + timeStamp + nonce);
     }
 
-    //Add transactions to this block
     public boolean addTransaction(Transaction transaction) {
-        //process transaction and check if valid, unless block is genesis block then ignore.
-        if(transaction == null) {
+        if (transaction == null) {
             return false;
         }
-        if(!previousHash.equals("0")) {
-            if(!transaction.processTransaction()) {
-                LOGGER.info("Transaction failed to process. Discarded.");
-                return false;
-            }
+
+        if (!Objects.equals(previousHash, "0") && !transaction.processTransaction()) {
+            LOGGER.info("Transaction failed to process. Discarded.");
+            return false;
         }
         transactions.add(transaction);
         LOGGER.info("Transaction Successfully added to Block");
@@ -58,10 +56,6 @@ public class Block {
 
     public String getHash() {
         return hash;
-    }
-
-    public String getPreviousHash() {
-        return previousHash;
     }
 
     public List<Transaction> getTransactions() {

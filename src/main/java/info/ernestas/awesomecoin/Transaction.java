@@ -19,13 +19,13 @@ public class Transaction {
     private final PublicKey sender; // senders address/public key.
     private final PublicKey recipient; // Recipients address/public key.
     private final float value;
-    private byte[] signature; // this is to prevent anybody else from spending funds in our wallet.
+    private byte[] signature;
 
     private final float minimumTransaction;
-    private List<TransactionInput> inputs;
+    private final List<TransactionInput> inputs;
     private List<TransactionOutput> outputs = new ArrayList<>();
 
-    private int sequence = 0; // a rough count of how many transactions have been generated.
+    private int sequence = 0;
 
     public Transaction(PublicKey from, PublicKey to, float value, float minimumTransaction, List<TransactionInput> inputs) {
         this.sender = from;
@@ -35,40 +35,28 @@ public class Transaction {
         this.inputs = inputs;
     }
 
-    //Returns true if new transaction could be created.
     public boolean processTransaction() {
-        if(!verifySignature()) {
+        if (!verifySignature()) {
             LOGGER.info("#Transaction Signature failed to verify");
             return false;
         }
 
-        //gather transaction inputs (Make sure they are unspent):
-        for(TransactionInput i : inputs) {
+        for (TransactionInput i : inputs) {
             i.setUTXO(AwesomeChain.UTXOs.get(i.getTransactionOutputId()));
         }
 
-        //check if transaction is valid:
-        if(getInputsValue() < minimumTransaction) {
-            LOGGER.info("#Transaction Inputs to small:  {}", getInputsValue());
+        if (getInputsValue() < minimumTransaction) {
+            LOGGER.info("Transaction Inputs to small:  {}", getInputsValue());
             return false;
         }
 
-        //generate transaction outputs:
         float leftOver = getInputsValue() - value; //get value of inputs then the left over change:
         transactionId = calculateHash();
-        outputs.add(new TransactionOutput( this.recipient, value,transactionId)); //send value to recipient
-        outputs.add(new TransactionOutput( this.sender, leftOver,transactionId)); //send the left over 'change' back to sender
+        outputs.add(new TransactionOutput(recipient, value, transactionId)); //send value to recipient
+        outputs.add(new TransactionOutput(sender, leftOver, transactionId)); //send the left over 'change' back to sender
 
-        //add outputs to Unspent list
-        for(TransactionOutput o : outputs) {
-            AwesomeChain.UTXOs.put(o.getId() , o);
-        }
-
-        //remove transaction inputs from UTXO lists as spent:
-        for(TransactionInput i : inputs) {
-            if(i.getUTXO() == null) continue; //if Transaction can't be found skip it
-            AwesomeChain.UTXOs.remove(i.getUTXO().getId());
-        }
+        outputs.forEach(o -> AwesomeChain.UTXOs.put(o.getId(), o));
+        inputs.stream().filter(i -> i.getUTXO() != null).forEach(i -> AwesomeChain.UTXOs.remove(i.getUTXO().getId()));
 
         return true;
     }
@@ -115,24 +103,12 @@ public class Transaction {
         this.transactionId = transactionId;
     }
 
-    public PublicKey getSender() {
-        return sender;
-    }
-
     public PublicKey getRecipient() {
         return recipient;
     }
 
     public float getValue() {
         return value;
-    }
-
-    public byte[] getSignature() {
-        return signature;
-    }
-
-    public List<TransactionInput> getInputs() {
-        return inputs;
     }
 
     public List<TransactionOutput> getOutputs() {
@@ -143,12 +119,8 @@ public class Transaction {
         this.outputs = outputs;
     }
 
-    public int getSequence() {
-        return sequence;
-    }
-
     private String calculateHash() {
-        sequence++; //increase the sequence to avoid 2 identical transactions having the same hash
+        sequence++;
         return HashUtil.calculateSha256Hash(
                 StringUtil.getStringFromKey(sender) +
                         StringUtil.getStringFromKey(recipient) +
