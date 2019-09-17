@@ -21,23 +21,23 @@ class ChainTest {
     void addBlock() {
         int initialSize = chain.getBlockchain().size();
 
-        chain.addBlock(new Block("0", "test"));
+        chain.addBlock(new Block("0"));
 
         assertEquals(initialSize + 1, chain.getBlockchain().size());
     }
 
     @Test
     void getBlocks() {
-        chain.addBlock(new Block("0", "test"));
+        chain.addBlock(new Block("0"));
 
         assertEquals(1, chain.getBlockchain().size());
     }
 
     @Test
     void isValid() {
-        Block firstBlock = new Block("0", "test1");
+        Block firstBlock = new Block("0");
         firstBlock.mineBlock(DIFFICULTY);
-        Block secondBlock = new Block(firstBlock.getHash(), "test2");
+        Block secondBlock = new Block(firstBlock.getHash());
         secondBlock.mineBlock(DIFFICULTY);
 
         chain.addBlock(firstBlock);
@@ -48,9 +48,9 @@ class ChainTest {
 
     @Test
     void isNotValid_whenPreviousHashIsInvalid() {
-        Block firstBlock = new Block("0", "test1");
+        Block firstBlock = new Block("0");
         firstBlock.mineBlock(DIFFICULTY);
-        Block secondBlock = new Block(HashUtil.calculateSha256Hash("not valid hash"), "test2");
+        Block secondBlock = new Block(HashUtil.calculateSha256Hash("not valid hash"));
         secondBlock.mineBlock(DIFFICULTY);
 
         chain.addBlock(firstBlock);
@@ -61,9 +61,9 @@ class ChainTest {
 
     @Test
     void isNotValid_whenBlockIsNotMined() {
-        Block firstBlock = new Block("0", "test1");
+        Block firstBlock = new Block("0");
         firstBlock.mineBlock(DIFFICULTY);
-        Block secondBlock = new Block(firstBlock.getHash(), "test2");
+        Block secondBlock = new Block(firstBlock.getHash());
 
         chain.addBlock(firstBlock);
         chain.addBlock(secondBlock);
